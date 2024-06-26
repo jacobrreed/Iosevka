@@ -1,0 +1,87 @@
+$$include '../../meta/macros.ptl'
+
+import [mix linreg clamp fallback] from "@iosevka/util"
+
+glyph-module
+
+glyph-block Letter-Latin-Thorn : begin
+	glyph-block-import CommonShapes
+	glyph-block-import Common-Derivatives
+	glyph-block-import Mark-Adjustment : LeaningAnchor
+	glyph-block-import Letter-Shared-Shapes : OBarLeft LetterBarOverlay SerifFrame
+	glyph-block-import Letter-Latin-Lower-P
+
+	define xThornLeftStroke : SB * 1.25
+
+	define [yThornBowlBot top slab] : top * 0.25 + [if slab (Stroke * 0.125) 0]
+	define [yThornBowlTop top slab] : top - 0.7 * [yThornBowlBot top slab] + [if slab (-0.125) 0.25] * Stroke
+
+	define [yShoBowlBot top slab] : mix [yThornBowlBot top slab] (top - [yThornBowlTop top slab]) 0.5
+	define [yShoBowlTop top slab] : top - [yShoBowlBot top slab]
+
+	define [ThornShape top slabTop slabBot _yBowlBot _yBowlTop] : glyph-proc
+		local yBowlBot : fallback _yBowlBot [yThornBowlBot top slabBot]
+		local yBowlTop : fallback _yBowlTop [yThornBowlTop top slabBot]
+
+		local turn : mix yBowlTop yBowlBot (ArchDepthB / (ArchDepthA + ArchDepthB))
+		local turnRadius : (yBowlTop - yBowlBot) / 2
+
+		include : dispiro
+			widths.rhs
+			flat xThornLeftStroke yBowlTop [heading Rightward]
+			curl [arch.adjust-x.top (RightSB - turnRadius)] yBowlTop
+			archv
+			g4   (RightSB - O) turn
+			arcvh
+			flat [arch.adjust-x.bot (RightSB - turnRadius)] yBowlBot
+			curl xThornLeftStroke yBowlBot [heading Leftward]
+
+		include : VBar.l xThornLeftStroke 0 top
+		if slabTop : begin
+			local sf : SerifFrame top 0 xThornLeftStroke RightSB
+			if slabBot
+				then : include : composite-proc sf.lt.fullSide sf.lb.fullSide
+				else : include   sf.lt.outer
+
+	define [GrekShoShapeImpl top slabTop slabBot] : ThornShape top slabTop slabBot
+		yShoBowlBot top slabBot
+		yShoBowlTop top slabBot
+
+	define ThornConfig : object
+		serifless     { false false }
+		motionSerifed { true  false }
+		serifed       { true  true  }
+
+	foreach { suffix { st sb } } [Object.entries ThornConfig] : do
+		create-glyph "Thorn.\(suffix)" : glyph-proc
+			include : MarkSet.capital
+			include : ThornShape CAP st sb
+			include : LeaningAnchor.Above.VBar.l xThornLeftStroke
+			include : LeaningAnchor.Below.VBar.l xThornLeftStroke
+
+		create-glyph "ThornStroke.\(suffix)" : glyph-proc
+			include : MarkSet.capital
+			include : ThornShape CAP st sb (CAP - [yThornBowlTop CAP sb]) (CAP - [yThornBowlBot CAP st])
+			include : LeaningAnchor.Above.VBar.l xThornLeftStroke
+			include : LeaningAnchor.Below.VBar.l xThornLeftStroke
+			include : LetterBarOverlay.l.in
+				x   -- xThornLeftStroke
+				top -- (CAP - [if st Stroke 0])
+				bot -- (CAP - [yThornBowlBot CAP st])
+
+		create-glyph "ThornStrokeBot.\(suffix)" : glyph-proc
+			include [refer-glyph "Thorn.\(suffix)"] AS_BASE ALSO_METRICS
+			include : LetterBarOverlay.l.in
+				x   -- xThornLeftStroke
+				bot -- (0 + [if sb Stroke 0])
+				top -- (0 + [yThornBowlBot CAP sb])
+
+	select-variant 'Thorn' 0xDE
+	select-variant 'ThornStroke' 0xA764 (follow -- 'Thorn')
+	select-variant 'ThornStrokeBot' 0xA766 (follow -- 'Thorn')
+
+	create-glyph 'grek/Sho' 0x3F7 : glyph-proc
+		include : MarkSet.capital
+		include : GrekShoShapeImpl CAP SLAB SLAB
+		include : LeaningAnchor.Above.VBar.l xThornLeftStroke
+		include : LeaningAnchor.Below.VBar.l xThornLeftStroke

@@ -1,0 +1,727 @@
+$$include '../meta/macros.ptl'
+
+import [mix linreg clamp fallback boole boolePn] from "@iosevka/util"
+import [Transform] from "@iosevka/geometry/transform"
+import [Interpolator] from "@iosevka/geometry/spiro-control"
+import [RadicalGeometry StrokeGeometry RemoveHolesGeometry] from "@iosevka/geometry"
+
+glyph-module
+
+glyph-block CommonShapes : begin
+	glyph-block-import Common-Derivatives
+
+	glyph-block-export no-shape
+	define [no-shape] { .__isNoShape true }
+
+	glyph-block-export tagged
+	define [tagged tag component] : function [ca cw] : begin
+		define t this.ctxTag
+		set this.ctxTag tag
+		define ret : this.include component ca cw
+		set this.ctxTag t
+		return ret
+
+	glyph-block-export Rect
+	define [Rect u d l r transformShiftOnly] : glyph-proc
+		local giz currentGlyph.gizmo
+		include : new-glyph : glyph-proc
+			local my ((u + d) / 2)
+			local mx ((l + r) / 2)
+			currentGlyph.gizmo = [if transformShiftOnly [Transform.Id] giz]
+			include : spiro-outline
+				corner l d
+				corner l u
+				corner r u
+				corner r d
+			if transformShiftOnly : begin
+				local {.x mx1 .y my1} : giz.apply {.x mx .y my}
+				include : Translate (mx1 - mx) (my1 - my)
+
+	glyph-block-export SquareAt
+	define [SquareAt x y r] : Rect (y + r) (y - r) (x - r) (x + r)
+
+	glyph-block-export MaskAbove
+	define [MaskAbove y] : Rect (VERY-FAR) y (-VERY-FAR) (VERY-FAR)
+	glyph-block-export MaskBelow
+	define [MaskBelow y] : Rect y (-VERY-FAR) (-VERY-FAR) (VERY-FAR)
+	glyph-block-export MaskLeft
+	define [MaskLeft  x] : Rect VERY-FAR (-VERY-FAR) (-VERY-FAR) x
+	glyph-block-export MaskRight
+	define [MaskRight x] : Rect VERY-FAR (-VERY-FAR) x VERY-FAR
+	glyph-block-export MaskAboveLine
+	define [MaskAboveLine x1 y1 x2 y2] : spiro-outline
+		corner x1 (+VERY-FAR)
+		corner x1 y1
+		corner x2 y2
+		corner x2 (+VERY-FAR)
+	glyph-block-export MaskBelowLine
+	define [MaskBelowLine x1 y1 x2 y2] : spiro-outline
+		corner x1 (-VERY-FAR)
+		corner x1 y1
+		corner x2 y2
+		corner x2 (-VERY-FAR)
+	glyph-block-export MaskLeftLine
+	define [MaskLeftLine  x1 y1 x2 y2] : spiro-outline
+		corner (-VERY-FAR) y1
+		corner x1 y1
+		corner x2 y2
+		corner (-VERY-FAR) y2
+	glyph-block-export MaskRightLine
+	define [MaskRightLine x1 y1 x2 y2] : spiro-outline
+		corner (+VERY-FAR) y1
+		corner x1 y1
+		corner x2 y2
+		corner (+VERY-FAR) y2
+
+	glyph-block-export HalfRectTriangle
+	define [HalfRectTriangle x1 y1 x2 y2] : spiro-outline
+		corner x1 y1
+		corner x2 y2
+		corner x2 y1
+
+
+	glyph-block-export Ring
+	define [Ring u d l r transformShiftOnly] : glyph-proc
+		local giz currentGlyph.gizmo
+		include : new-glyph : glyph-proc
+			local my ((u + d) / 2)
+			local mx ((l + r) / 2)
+			currentGlyph.gizmo = [if transformShiftOnly [Transform.Id] giz]
+			include : spiro-outline
+				g4 mx d
+				archv
+				g4 l my
+				arcvh
+				g4 mx u
+				archv
+				g4 r my
+				arcvh
+				close
+			if transformShiftOnly : begin
+				local {.x mx1 .y my1} : giz.apply {.x mx .y my}
+				include : Translate (mx1 - mx) (my1 - my)
+	glyph-block-export RingAt
+	define [RingAt x y r] : Ring (y + r) (y - r) (x - r) (x + r)
+	glyph-block-export DotAt
+	define [DotAt x y r] : Ring (y + r) (y - r) (x - r) (x + r) true
+
+	glyph-block-export RingStroke
+	define [RingStroke u d l r s transformShiftOnly] : glyph-proc
+		local giz currentGlyph.gizmo
+		include : new-glyph : glyph-proc
+			local my ((u + d) / 2)
+			local mx ((l + r) / 2)
+			currentGlyph.gizmo = [if transformShiftOnly [Transform.Id] giz]
+			include : dispiro
+				begin [lambda : set this.gizmo currentGlyph.gizmo]
+				widths.rhs [fallback s Stroke]
+				g4 mx d [heading Leftward]
+				archv
+				g4 l my
+				arcvh
+				g4 mx u [heading Rightward]
+				archv
+				g4 r my
+				arcvh
+				close
+			if transformShiftOnly : begin
+				local {.x mx1 .y my1} : giz.apply {.x mx .y my}
+				include : Translate (mx1 - mx) (my1 - my)
+	glyph-block-export RingStrokeAt
+	define [RingStrokeAt x y r s] : RingStroke (y + r) (y - r) (x - r) (x + r) s
+	glyph-block-export DotStrokeAt
+	define [DotStrokeAt x y r s] : RingStroke (y + r) (y - r) (x - r) (x + r) s true
+
+	glyph-block-export Circle
+	define Circle : namespace
+		export : define Outline : namespace
+			export : define [At x y r] : Ellipse.Outline.AtDimens (y + r) (y - r) (x - r) (x + r)
+			export : define [DotAt x y r] : Ellipse.Outline.AtDimens (y + r) (y - r) (x - r) (x + r) true
+
+	glyph-block-export Ellipse
+	define Ellipse : namespace
+		export : define Outline : namespace
+			export : define [AtDimens u d l r transformShiftOnly] : glyph-proc
+				local giz currentGlyph.gizmo
+				include : new-glyph : glyph-proc
+					local my ((u + d) / 2)
+					local mx ((l + r) / 2)
+					currentGlyph.gizmo = [if transformShiftOnly [Transform.Id] giz]
+					include : spiro-outline
+						begin [lambda : set this.gizmo currentGlyph.gizmo]
+						g4 mx d
+						archv 32 2.0
+						g4 l my
+						arcvh 32 2.0
+						g4 mx u
+						archv 32 2.0
+						g4 r my
+						arcvh 32 2.0
+						close
+					if transformShiftOnly : begin
+						local {.x mx1 .y my1} : giz.apply {.x mx .y my}
+						include : Translate (mx1 - mx) (my1 - my)
+			export : define [At x y rx ry] : AtDimens (y + ry) (y - ry) (x - rx) (x + rx)
+			export : define [DotAt x y rx ry] : AtDimens (y + ry) (y - ry) (x - rx) (x + rx) true
+			export : define [RoundStrokeTerminalAt x y r] : AtDimens (y + r) (y - r) (x - [HSwToV r]) (x + [HSwToV r]) true
+
+	glyph-block-export OShapeT
+	define [OShapeT sink u d l r _width _ada _adb] : begin
+		if (l > r) : throw : new Error "OShapeT: l > r"
+		if (d > u) : throw : new Error "OShapeT: d > u"
+
+		local middle : (l + r) / 2
+		local width : fallback _width Stroke
+		local ada : fallback _ada SmallArchDepthA
+		local adb : fallback _adb SmallArchDepthB
+		if (u - d > ada + adb) : then : begin
+			return : sink
+				widths width 0
+				arch.lhs.centerAt.rtl.t middle u (sw -- width)
+				archv
+				flat (l + OX) (u - ada)
+				curl (l + OX) (d + adb)
+				arcvh
+				arch.lhs.centerAt.ltr.b middle d (sw -- width)
+				archv
+				flat (r - OX) (d + ada)
+				curl (r - OX) (u - adb)
+				arcvh
+				close
+		: else : begin
+			local ymiddlea : mix d u (adb / (ada + adb))
+			local ymiddleb : mix d u (ada / (ada + adb))
+			return : sink
+				widths width 0
+				arch.lhs.centerAt.rtl.t middle u (sw -- width)
+				archv
+				g4 (l + OX) ymiddlea
+				arcvh
+				arch.lhs.centerAt.ltr.b middle d (sw -- width)
+				archv
+				g4 (r - OX) ymiddleb
+				arcvh
+				close
+
+	glyph-block-export OShape
+	define [OShape u d l r _width _ada _adb] : OShapeT dispiro u d l r _width _ada _adb
+	glyph-block-export OShapeOutline
+	define [OShapeOutline u d l r _width _ada _adb] : OShapeT spiro-outline u d l r _width _ada _adb
+
+	set OShape.NoOvershoot : lambda [u d l r _width _ada _adb] : OShape (u + O) (d - O) (l - OX) (r + OX) _width _ada _adb
+	set OShapeOutline.NoOvershoot : lambda [u d l r _width _ada _adb] : OShapeOutline (u + O) (d - O) (l - OX) (r + OX) _width _ada _adb
+
+	glyph-block-export OShapeFlatTB
+	define [OShapeFlatTB u d l r _width _ada _adb gap] : glyph-proc
+		local middle : (l + r) / 2
+		local width : fallback _width Stroke
+		local ada : fallback _ada SmallArchDepthA
+		local adb : fallback _adb SmallArchDepthB
+		if (u - d > ada + adb) : then : begin
+			include : dispiro
+				widths.lhs width
+				arch.lhs.centerAt.rtl.t middle u (sw -- width) (knot-ty -- flat)
+				arch.lhs.centerAt.rtl.t (middle - gap / 2) u (sw -- width) (knot-ty -- curl)
+				archv
+				flat (l + OX) (u - ada)
+				curl (l + OX) (d + adb)
+				arcvh
+				arch.lhs.centerAt.ltr.b (middle - gap / 2) d (sw -- width) (knot-ty -- flat)
+				arch.lhs.centerAt.ltr.b (middle + gap / 2) d (sw -- width) (knot-ty -- curl)
+				archv
+				flat (r - OX) (d + ada)
+				curl (r - OX) (u - adb)
+				arcvh
+				arch.lhs.centerAt.rtl.t (middle + gap / 2) u (sw -- width) (knot-ty -- flat)
+				arch.lhs.centerAt.rtl.t middle u (sw -- width) (knot-ty -- curl)
+		: else : begin
+			local ymiddlea : mix d u (adb / (ada + adb))
+			local ymiddleb : mix d u (ada / (ada + adb))
+			include : dispiro
+				arch.lhs.centerAt.rtl.t middle u (sw -- width) (knot-ty -- flat)
+				arch.lhs.centerAt.rtl.t (middle - gap / 2) u (sw -- width) (knot-ty -- curl)
+				archv
+				g4 (l + OX) ymiddlea
+				arcvh
+				arch.lhs.centerAt.ltr.b (middle - gap / 2) d (sw -- width) (knot-ty -- flat)
+				arch.lhs.centerAt.ltr.b (middle + gap / 2) d (sw -- width) (knot-ty -- curl)
+				archv
+				g4 (r - OX) ymiddleb
+				arcvh
+				arch.lhs.centerAt.rtl.t (middle + gap / 2) u (sw -- width) (knot-ty -- flat)
+				arch.lhs.centerAt.rtl.t middle u (sw -- width) (knot-ty -- curl)
+
+	glyph-block-export HSerif
+	define HSerif : namespace
+		export : define [lt x y length _sw _swRef] : glyph-proc
+			local sw : fallback _sw Stroke
+			local swRef : fallback _swRef sw
+			include : dispiro
+				flat (x + [HSwToV : 0.5 * swRef]) y [widths.heading sw 0 Leftward]
+				curl (x - length - TanSlope * (sw * DesignParameters.serifShiftX)) y
+
+		export : define [lb x y length _sw _swRef] : glyph-proc
+			local sw : fallback _sw Stroke
+			local swRef : fallback _swRef sw
+			include : dispiro
+				flat (x + [HSwToV : 0.5 * swRef]) y [widths.heading 0 sw Leftward]
+				curl (x - length + TanSlope * (sw * DesignParameters.serifShiftX)) y
+
+		export : define [rt x y length _sw _swRef] : glyph-proc
+			local sw : fallback _sw Stroke
+			local swRef : fallback _swRef sw
+			include : dispiro
+				flat (x - [HSwToV : 0.5 * swRef]) y [widths.heading 0 sw Rightward]
+				curl (x + length - TanSlope * (sw * DesignParameters.serifShiftX)) y
+
+		export : define [rb x y length _sw _swRef] : glyph-proc
+			local sw : fallback _sw Stroke
+			local swRef : fallback _swRef sw
+			include : dispiro
+				flat (x - [HSwToV : 0.5 * swRef]) y [widths.heading sw 0 Rightward]
+				curl (x + length + TanSlope * (sw * DesignParameters.serifShiftX)) y
+
+		export : define [mt x y length _sw] : mtAsymmetric x y length length _sw
+
+		export : define [mtAsymmetric x y l r _sw] : begin
+			local sw : fallback _sw Stroke
+			return : dispiro
+				flat (x + r - TanSlope * (sw * DesignParameters.serifShiftX)) y [widths.lhs sw]
+				curl (x - l - TanSlope * (sw * DesignParameters.serifShiftX)) y
+
+		export : define [mb x y length _sw] : mbAsymmetric x y length length _sw
+		export : define [mbAsymmetric x y l r _sw] : begin
+			local sw : fallback _sw Stroke
+			return : dispiro
+				flat (x + r + TanSlope * (sw * DesignParameters.serifShiftX)) y [widths.rhs sw]
+				curl (x - l + TanSlope * (sw * DesignParameters.serifShiftX)) y
+
+	glyph-block-export VSerif
+	define VSerif : namespace
+		export : define [dr x y length sw] : glyph-proc
+			include : dispiro
+				widths.rhs [fallback sw VJutStroke]
+				flat x y [heading Downward]
+				curl x (y - length) [heading Downward]
+
+		export : define [ur x y length sw] : glyph-proc
+			include : dispiro
+				widths.lhs [fallback sw VJutStroke]
+				flat x y [heading Upward]
+				curl x (y + length) [heading Upward]
+
+		export : define [dl x y length sw] : glyph-proc
+			include : dispiro
+				widths.lhs [fallback sw VJutStroke]
+				flat x y [heading Downward]
+				curl x (y - length) [heading Downward]
+
+		export : define [ul x y length sw] : glyph-proc
+			include : dispiro
+				widths.rhs [fallback sw VJutStroke]
+				flat x y [heading Upward]
+				curl x (y + length) [heading Upward]
+
+	glyph-block-export NeedSlab
+	define [NeedSlab level p] : if level p [glyph-proc]
+	glyph-block-export NeedNotItalic
+	define [NeedNotItalic p] : if para.isItalic [glyph-proc] p
+
+	glyph-block-export DiagCor
+	define [DiagCor dy dx dyt dxt] : begin
+		local ay : Math.max 0 : [Math.abs dy] - [fallback dyt 0]
+		local ax : Math.max 0 : [Math.abs dx] - [fallback dxt 0]
+		return : [Math.hypot ay ax] / ay
+
+	glyph-block-export DiagCorDs
+	define [DiagCorDs dy dx ds] : begin
+		local kDiag : DiagCor dy dx
+		for [local n 0] (n < 4) [inc n] : begin
+			set kDiag : DiagCor dy (dx - ds * kDiag)
+		return kDiag
+
+	glyph-block-export HBar
+	define HBar : namespace
+		export : define [m xleft xright y _fine] : dispiro
+			widths.center [fallback _fine Stroke]
+			flat xleft  y [heading Rightward]
+			curl xright y [heading Rightward]
+		export : define [t xl xr y _fine] : m xl xr (y - [fallback _fine Stroke] * 0.5) _fine
+		export : define [b xl xr y _fine] : m xl xr (y + [fallback _fine Stroke] * 0.5) _fine
+
+	glyph-block-export VBar
+	define VBar : namespace
+		export : define [m x ydown yup _sw] : begin
+			local sw : fallback _sw Stroke
+			return : dispiro
+				widths.center sw
+				flat x ydown [heading : if (ydown < yup) Upward Downward]
+				curl x yup   [heading : if (ydown < yup) Upward Downward]
+		export : define [l x yd yu _sw] : m (x + [HSwToV : [fallback _sw Stroke] * 0.5]) yd yu _sw
+		export : define [r x yd yu _sw] : m (x - [HSwToV : [fallback _sw Stroke] * 0.5]) yd yu _sw
+
+	glyph-block-export HOverlayBar
+	define [HOverlayBar xleft xright y s] : dispiro
+		widths.center [fallback s OverlayStroke]
+		flat xleft y
+		curl xright y
+
+	glyph-block-export HCrossBar
+	define [HCrossBar xl xr y s] : dispiro
+		widths.center [fallback s OverlayStroke]
+		flat xl y
+		curl xr y
+	set HCrossBar.top : lambda [xl xr y _s] : begin
+		local s : fallback _s Stroke
+		return : HCrossBar (xl - 0 * s * TanSlope) (xr - 0 * s * TanSlope) (y - 0.5 * s) s
+	set HCrossBar.bottom : lambda [xl xr y _s] : begin
+		local s : fallback _s Stroke
+		return : HCrossBar (xl + 0 * s * TanSlope) (xr + 0 * s * TanSlope) (y + 0.5 * s) s
+
+	glyph-block-export FlatSlashShape
+	define [FlatSlashShape middlex middle fine kx ky] : glyph-proc
+		include : dispiro
+			flat (middlex - LongJut * [fallback kx 0.8]) (middle - LongJut * [fallback ky 0.4]) [widths.center : 2 * fine]
+			curl (middlex + LongJut * [fallback kx 0.8]) (middle + LongJut * [fallback ky 0.4])
+
+	# Spiro shapes
+	define [determineMixR w v u sw swash] : begin
+		if (!swash && w < v) : return : 1 - [determineMixR v w u sw swash]
+		local superness DesignParameters.superness
+		local r : piecewise
+			(w <= v)   0.5
+			true     : 1 / ([Math.pow (1 - [Math.pow (1 - v / w) superness]) (1 / superness)] + 1)
+		if swash : begin
+			local idepth : w - sw
+			local iwidth : u * r - sw
+			if (iwidth > 0 && idepth > 0 && iwidth / idepth >= 2) : begin
+				local adjust : clamp 0.975 1 (1 - (iwidth / idepth - 2) * 0.0125)
+				r = r * adjust
+		: else : set r : 0.5 + (r - 0.5) * (v + w) / (u * 2)
+
+		if (r < 0.5) : set r 0.5
+		return r
+
+	define nHookSegments 12
+	define [HookShape toStraight toFinish isStart args] : begin
+		local [object y sw swTerminal isTail noSwash] args
+
+		local atBottom : toStraight.y > y
+		local ltr : if isStart (toFinish.x < toStraight.x) (toFinish.x > toStraight.x)
+		local dtu : if isStart (y > toFinish.y) (y < toFinish.y)
+		local doSwash : !noSwash && !isStart && atBottom && (para.isItalic || isTail) && [if (para.slopeAngle >= 0) ltr [not ltr]]
+		local superness DesignParameters.superness
+
+		# Adjust terminal's position if necessary
+		toFinish.x = toFinish.x + OXHook * [if ltr (-1) 1] * [if isStart (-1) 1]
+		if (doSwash) : begin
+			local tailAdjX : Math.max (Hook * 0.5) (1.00 * sw)
+			local tailAdjY : Math.max (Hook * 0.5) (1.25 * sw)
+			toFinish.x = toFinish.x + tailAdjX * TanSlope
+			toFinish.y = toFinish.y - tailAdjY * [Math.abs TanSlope]
+
+		# Compute key middle knot
+		local w : Math.abs (toStraight.y - y)
+		local v : Math.abs (toFinish.y - y)
+		local u : Math.abs (toFinish.x - toStraight.x)
+		local mixRatio : determineMixR w v u sw doSwash
+		local mx : [mix toStraight.x toFinish.x mixRatio] + [if atBottom 1 (-1)] * 0.75 * CorrectionOMidX * sw
+		local keyKnotDirection : if ltr Rightward Leftward
+		local extraSlope : [if ltr 1 (-1)] * 0.25 * (sw - swTerminal) / sw
+		local finalTurnSlope : keyKnotDirection.x + extraSlope - [if ltr 1 (-1)] * 0.5 * TanSlope
+		local keyKnot : g4.[if ltr "right" "left"].mid
+			begin mx
+			begin y
+			heading {.x finalTurnSlope .y keyKnotDirection.y}
+
+		# Adjust terminal's direction
+		do "Adjust terminal's direction"
+			local rad : Math.min w (mixRatio * u)
+			local skew0 : [clamp 0 w (w - v)] / rad + ([clamp 1 1.5 (mixRatio * u / w)] - 1) * 0.5
+			local depth : v + skew0 * sw - sw
+			local shallowLimit : sw / 2
+			local skew : clamp 0 (1 / 2) : skew0 + [clamp 0 shallowLimit (shallowLimit - depth)] / rad
+			local faf toFinish.af
+			if doSwash
+			: then : begin
+				set toFinish.af : lambda [] : begin
+					if faf : faf.apply this arguments
+					if this.headsTo : this.headsTo {
+						.x (Contrast / [Math.hypot 1 skew] * [if dtu (-1) 1])
+						.y (skew / [Math.hypot 1 skew] * [if ltr 1 (-1)])
+					}
+			: else : begin
+				set toFinish.af : lambda [] : begin
+					if faf : faf.apply this arguments
+					if this.headsTo : this.headsTo{
+						.x (Contrast * [if dtu (-1) 1])
+						.y 0
+					}
+
+		# Create the arc knots
+		local segBefore {}
+		local segAfter {}
+		foreach [j : range 1 nHookSegments] : begin
+			local fraction : j / nHookSegments
+			local mixRatioAdjust : Math.max (1 / 2) : (1 / 2) + [if doSwash 1 (1 / 8)] * (mixRatio - (1 / 2))
+			local fractionAfter : fraction * (1 - mixRatioAdjust) / mixRatioAdjust
+			local myfinal : _SuperXY ((1 - mixRatioAdjust) / mixRatioAdjust) superness
+			segBefore.push : g4
+				mix mx toStraight.x fraction
+				mix y toStraight.y (1 - [_SuperXY fraction superness])
+				begin unimportant
+			segAfter.push : g4
+				mix mx toFinish.x fraction
+				mix y toFinish.y ((1 - [_SuperXY fractionAfter superness]) / (1 - myfinal))
+				begin unimportant
+
+		if isStart
+		: then : return : list
+			segAfter.reverse
+			* keyKnot
+			* segBefore
+		: else : return : list
+			segBefore.reverse
+			* keyKnot
+			* segAfter
+
+	define [hookStartBlender before after args] : begin
+		return : HookShape after before true args
+
+	define [hookEndBlender before after args] : begin
+		return : HookShape before after false args
+
+	glyph-block-export hookstart
+	define flex-params [hookstart] : begin
+		local-parameter : y
+		local-parameter : sw             -- Stroke
+		local-parameter : swTerminal     -- sw
+		local-parameter : isTail         -- false
+		local-parameter : noSwash        -- false
+		return : Interpolator hookStartBlender
+			object y sw swTerminal isTail noSwash
+
+	glyph-block-export hookend
+	define flex-params [hookend] : begin
+		local-parameter : y
+		local-parameter : sw             -- Stroke
+		local-parameter : swTerminal     -- sw
+		local-parameter : isTail         -- false
+		local-parameter : noSwash        -- false
+		return : Interpolator hookEndBlender
+			object y sw swTerminal isTail noSwash
+
+	glyph-block-export arch
+	define arch : namespace
+		export : define adjust-x : namespace
+			export : define flex-params [top] : begin
+				local-parameter : x
+				local-parameter : sw -- Stroke
+				return : x - CorrectionOMidX * sw
+			export : define flex-params [bot] : begin
+				local-parameter : x
+				local-parameter : sw -- Stroke
+				return : x + CorrectionOMidX * sw
+
+		define [impl args] : begin
+			local doAdj : not args.compact
+
+			local skew : HVContrast * (args.swAfter - args.swBefore) / (2 * args.sw)
+			local heading : object
+				x : [boolePn args.rtl] * ([boolePn args.lhs] * skew + [boole doAdj] * TanSlope)
+				y : [boolePn args.lhs] * [boolePn args.atBot] * 1
+
+			local italicAdj : [boole doAdj] * [boolePn args.atBot] * CorrectionOMidX * args.sw
+			local overshoot : [boolePn args.atBot] * args.o
+
+			local af : if args.lhs
+				widths.lhs.heading args.sw heading
+				widths.rhs.heading args.sw heading
+
+			local knotType : fallback args.knot-ty : if args.compact
+				if args.rtl g4.left.mid g4.right.mid
+				if args.rtl g2.left.mid g2.right.mid
+			return : knotType (args.x + italicAdj) (args.y + overshoot) af
+
+		define [mixR w v u sw] : begin
+			if (w < v) : return : 1 - [mixR v w u sw]
+			local superness DesignParameters.superness
+			local r : 1 / ([Math.pow (1 - [Math.pow (1 - v / w) superness]) (1 / superness)] + 1)
+			set r : 0.5 + (r - 0.5) * (v + w) / (u * 2)
+			return r
+
+		define [archBlender _before _after args] : begin
+			local before : fallback args.mockPre _before
+			local after : fallback args.mockPost _after
+
+			local u : Math.abs (after.x - before.x)
+			local v : Math.abs (after.y - args.y)
+			local w : Math.abs (before.y - args.y)
+
+			local mixRatio : mixR w v u args.sw
+
+			set args.x : mix before.x after.x [fallback args.p mixRatio]
+			set args.rtl : before.x > after.x
+			set args.atBot : args.y < before.y && args.y < after.y
+
+			return : list
+				begin (args.blendPre || {})
+				impl args
+				begin (args.blendPost || {})
+
+		export : define flex-params [lhs] : begin
+			local-parameter : y
+			local-parameter : p
+			local-parameter : sw 		   -- Stroke
+			local-parameter : compact      -- false
+			local-parameter : o 		   -- O
+			local-parameter : swBefore	   -- sw
+			local-parameter : swAfter	   -- sw
+			local-parameter : mockPre      -- nothing
+			local-parameter : mockPost     -- nothing
+			local-parameter : blendPre     -- [arcvh]
+			local-parameter : blendPost    -- [archv]
+			return : Interpolator archBlender
+				object [lhs true] y p sw compact o swBefore swAfter mockPre mockPost blendPre blendPost
+
+		export : define flex-params [rhs] : begin
+			local-parameter : y
+			local-parameter : p
+			local-parameter : sw 		   -- Stroke
+			local-parameter : compact      -- false
+			local-parameter : o 		   -- O
+			local-parameter : swBefore	   -- sw
+			local-parameter : swAfter	   -- sw
+			local-parameter : mockPre      -- nothing
+			local-parameter : mockPost     -- nothing
+			local-parameter : blendPre     -- [arcvh]
+			local-parameter : blendPost    -- [archv]
+			return : Interpolator archBlender
+				object [lhs false] y p sw compact o swBefore swAfter mockPre mockPost blendPre blendPost
+
+		foreach side {lhs rhs} : begin
+			set side.centerAt : object
+			foreach dir {"ltr" "rtl"} : begin
+				set side.centerAt.(dir) : object
+				foreach ydir {"t" "b"} : let [side] [dir] [ydir] : do
+					define flex-params [f] : begin
+						local-parameter : x
+						local-parameter : y
+						local-parameter : sw 		   -- Stroke
+						local-parameter : compact      -- false
+						local-parameter : knot-ty      -- nothing
+						local-parameter : o 		   -- O
+						local-parameter : swBefore	   -- sw
+						local-parameter : swAfter	   -- sw
+						return : impl : object x y sw compact knot-ty o swBefore swAfter
+							lhs : side == lhs
+							rtl : dir == "rtl"
+							atBot : ydir == "b"
+					set side.centerAt.(dir).(ydir) f
+
+	glyph-block-export Ungizmo
+	define [Ungizmo] : glyph-proc
+		include [this.gizmo.inverse]
+
+	glyph-block-export Regizmo
+	define [Regizmo] : glyph-proc
+		include this.gizmo
+
+	# Composite transformations
+	glyph-block-export FlipAround
+	define [FlipAround x y sx sy] : glyph-proc
+		include : Ungizmo
+		include : Translate (-x) (-y)
+		include : Scale [fallback sx (-1)] [fallback sy sx (-1)]
+		include : Translate x y
+		include : Regizmo
+
+	glyph-block-export ScaleAround
+	define ScaleAround FlipAround
+
+	glyph-block-export Realign
+	define [Realign x y sx sy] : ApparentTranslate (sx - x) (sy - y)
+
+	glyph-block-export ForceUpright
+	define [ForceUpright] : glyph-proc [set this.gizmo : Transform.Id]
+
+	glyph-block-export NameUni
+	define [NameUni unicode] : begin
+		local hex : [unicode.toString 16].toUpperCase
+		while (hex.length < 4) : set hex : '0' + hex
+		return : 'uni' + hex
+
+	glyph-block-export PointingTo
+	define [PointingTo x1 y1 x2 y2 G] : glyph-proc
+		local giz this.gizmo
+		local g : new-glyph : glyph-proc
+			set this.gizmo : Transform.Id
+			local {.x xo .y yo} : [Transform.Id].apply {.x x1 .y y1}
+			local {.x xt .y yt} : [Transform.Id].apply {.x x2 .y y2}
+			local mag : Math.hypot (yo - yt) (xo - xt)
+			include [G mag]
+			include : Rotate : Math.atan2 (yo - yt) (xo - xt)
+			include : Translate xt yt
+			include   giz
+		include g
+
+	glyph-block-export with-transform
+	define [with-transform tfm gr] : new-glyph : composite-proc gr tfm
+
+	glyph-block-export with-outlined
+	define [with-outlined sw gr] : new-glyph : glyph-proc
+		include gr
+		local g currentGlyph.geometry
+		local gizmo : currentGlyph.gizmo || GlobalTransform
+		set currentGlyph.geometry : new StrokeGeometry g gizmo sw HVContrast false
+
+	glyph-block-export remove-holes
+	define [remove-holes gr] : new-glyph : glyph-proc
+		include gr
+		local g currentGlyph.geometry
+		local gizmo : currentGlyph.gizmo || GlobalTransform
+		set currentGlyph.geometry : new RemoveHolesGeometry g gizmo
+
+	glyph-block-export radicalize
+	define [radicalize] : glyph-proc
+		local g currentGlyph.geometry
+		set currentGlyph.geometry : new RadicalGeometry g
+
+	glyph-block-export clear-geometry
+	define [clear-geometry] : glyph-proc
+		currentGlyph.clearGeometry
+
+	glyph-block-export clear-anchors
+	define [clear-anchors] : glyph-proc
+		set currentGlyph.markAnchors {.}
+		set currentGlyph.markBnchors {.}
+
+	glyph-block-export ExtLineCenter
+	define [ExtLineCenter k sw x1 y1 x2 y2] : dispiro
+		widths.center sw
+		corner [mix x1 x2 (-k)]  [mix y1 y2 (-k)]
+		corner [mix x1 x2 (1+k)] [mix y1 y2 (1+k)]
+
+	glyph-block-export ExtLineLhs
+	define [ExtLineLhs k sw x1 y1 x2 y2] : dispiro
+		widths.lhs sw
+		corner [mix x1 x2 (-k)]  [mix y1 y2 (-k)]
+		corner [mix x1 x2 (1+k)] [mix y1 y2 (1+k)]
+
+	glyph-block-export ExtLineRhs
+	define [ExtLineRhs k sw x1 y1 x2 y2] : dispiro
+		widths.rhs sw
+		corner [mix x1 x2 (-k)]  [mix y1 y2 (-k)]
+		corner [mix x1 x2 (1+k)] [mix y1 y2 (1+k)]
+
+	# Dot variant constructor
+	glyph-block-export DotVariants
+	define DotVariants : object
+		round  { DotAt    1                                O }
+		square { SquareAt DesignParameters.squareDotScalar 0 }
+
+	glyph-block-export WithDotVariants
+	define [WithDotVariants name unicode F] : begin
+		foreach { suffix { DrawAt kDotRadius overshoot } } [Object.entries DotVariants] : do
+			create-glyph "\(name).\(suffix)" : F DrawAt kDotRadius overshoot
+		select-variant name unicode (follow -- 'punctuationDot')
